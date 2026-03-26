@@ -1,233 +1,142 @@
-Here's the complete chart-by-chart summary:
+
+## Summary: Data Sources & Processing by Chart
+
+Here's a chart-by-chart breakdown of every visualization in the RPF Country Dashboard, tracing data from original source through processing to display.
 
 ---
 
-# Dashboard Data Sources: Chart-by-Chart Summary
+### HOME PAGE — "Over Time" Tab
 
-The dashboard (`rpf-country-dash`) reads all data from Databricks (`prd_mega`) under two schemas:
-- **`boost`** — Expenditure data, processed by **`mega-boost`**
-- **`indicator`** — External indicators, fetched by **`mega-indicators`**
-
----
-
-## Overview Page — "Over Time" Tab
-
-### 1. Total Expenditure Over Time
-**"How has total expenditure changed over time?"**
-| Layer | Detail |
-|---|---|
-| **DB Table** | `boost.pov_expenditure_by_country_year` |
-| **Processing (mega-boost)** | Per-country BOOST Excel → `{code}_boost_gold` → `boost_gold` (union all countries) → `expenditure_by_country_year` (group by country+year, join CPI + population) → `pov_expenditure_by_country_year` (join poverty rate) |
-| **Primary source** | **BOOST** public finance microdata (Ministries of Finance Excel workbooks) |
-| **Supporting sources** | **CPI** — WB API `FP.CPI.TOTL` (`mega-indicators/consumer_price_index.py`); **Population** — WB API `SP.POP.TOTL` (`mega-indicators/population/national_population.py`) |
-| **Displayed** | `expenditure` (Central vs Regional stacked bars), `real_expenditure` (inflation-adjusted line) |
-
-### 2. Per Capita Expenditure + Poverty Rate
-**"How has per capita expenditure changed over time?"**
-| Layer | Detail |
-|---|---|
-| **DB Table** | Same: `boost.pov_expenditure_by_country_year` |
-| **Processing** | `per_capita_expenditure = expenditure / population`; `per_capita_real_expenditure = real_expenditure / population` |
-| **Sources** | Same as #1 plus **Poverty Rate** — WB Poverty & Inequality Platform (`SI.POV.DDAY`, `SI.POV.LMIC`, `SI.POV.UMIC`) via `mega-indicators/poverty/poverty.py`; threshold varies by income level |
-| **Displayed** | `per_capita_expenditure` (bar), `per_capita_real_expenditure` (line), `poverty_rate` (secondary axis) |
-
-### 3. Functional Breakdown
-**"How has sector prioritization changed over time?"**
-| Layer | Detail |
-|---|---|
-| **DB Table** | `boost.expenditure_by_country_func_econ_year` (aggregated to func level client-side) |
-| **Processing** | `boost_gold` → `expenditure_by_country_admin_func_sub_econ_sub_year` → `expenditure_by_country_func_econ_year` (join population) |
-| **Primary source** | **BOOST** — `func` column mapped to COFOG categories |
-| **Displayed** | `expenditure` per func as % of total per year |
-
-### 4. Budget Growth Rate by Function
-**Year-on-year budget growth rate**
-| Layer | Detail |
-|---|---|
-| **DB Table** | Same as #3 |
-| **Processing** | `domestic_funded_budget` = non-foreign-funded `approved`; inflation-adjusted variant uses CPI |
-| **Primary source** | **BOOST** — `approved` column + `is_foreign` flag |
-| **Displayed** | YoY % change of `domestic_funded_budget` or `real_domestic_funded_budget` |
-
-### 5. Economic Breakdown
-**"How much was spent on each economic category?"**
-| Layer | Detail |
-|---|---|
-| **DB Table** | Same: `boost.expenditure_by_country_func_econ_year` (aggregated to econ level) |
-| **Primary source** | **BOOST** — `econ` column mapped to GFS economic categories |
-| **Displayed** | `expenditure` per econ as % of total per year |
-
-### 6. PEFA Overall Score
-**"How did the overall quality of budget institutions change over time?"**
-| Layer | Detail |
-|---|---|
-| **DB Table** | `indicator.pefa_by_pillar` |
-| **Processing (mega-indicators)** | `pefa/pefa_transform_load.py` — downloads and transforms PEFA assessment data |
-| **Primary source** | **PEFA Secretariat** — [pefa.org/assessments/batch-downloads](https://www.pefa.org/assessments/batch-downloads) |
-
-### 7. PEFA by Pillar Heatmap
-**"How did various pillars of the budget institutions change over time?"**
-| Layer | Detail |
-|---|---|
-| **DB Table** | Same: `indicator.pefa_by_pillar` |
-| **Primary source** | **PEFA** assessments |
+| # | Chart | Data Table | Source | Processing Pipeline |
+|---|-------|-----------|--------|---------------------|
+| 1 | **How has total expenditure changed over time?** (stacked bar + line) | `pov_expenditure_by_country_year` | **BOOST** microdata (Excel) + **World Bank Poverty & Inequality Platform** | `mega-boost`: Country Excel → bronze CSV → silver (COFOG/economic classification) → gold (`boost_gold`) → `expenditure_by_country_year` aggregation. Joined with poverty rate from `mega-indicators` (`poverty_rate` table via wbgapi `SI.POV.*`). CPI-adjusted to real values using `consumer_price_index`. |
+| 2 | **How has per capita expenditure changed over time?** (stacked bar + line) | `pov_expenditure_by_country_year` | **BOOST** + **World Bank Poverty Platform** + **World Bank Population** | Same as above. Per capita = total expenditure ÷ population. Population from `mega-indicators` (`population` table via wbgapi `SP.POP.TOTL`). Poverty rate overlaid on secondary axis. |
+| 3 | **How has sector prioritization changed over time?** (stacked bar) | `expenditure_by_country_func_econ_year` | **BOOST** microdata | `mega-boost`: Raw budget data classified into 10 COFOG functional categories (Education, Health, Defence, Social Protection, etc.). Aggregated by country × function × year. Dashboard computes proportional shares. |
+| 4 | **How do budgets for functional categories fluctuate over time?** (multi-line) | `expenditure_by_country_func_econ_year` | **BOOST** microdata | Same source as above. Dashboard computes year-on-year growth rates and CAGR (Compound Annual Growth Rate) per functional category. Top 4 categories shown by default. |
+| 5 | **How much was spent on each economic category?** (stacked bar) | `expenditure_by_country_func_econ_year` | **BOOST** microdata | `mega-boost`: Raw budget data classified into economic categories (Wage bill, Capital expenditures, Goods & services, Subsidies & transfers, Interest on debt). Aggregated by country × economic category × year. |
+| 6 | **How did the overall quality of budget institutions change over time?** (line + secondary axis) | `pefa_by_pillar` + poverty rate | **PEFA Secretariat** + **World Bank Poverty Platform** | `mega-indicators`: PEFA assessment PDFs batch-downloaded from pefa.org. Letter grades (A–D) mapped to numeric scores (4.0–1.0). Averaged across 7 pillars for overall score. Poverty rate overlay from wbgapi. |
+| 7 | **How did various pillars of the budget institutions change over time?** (heatmap) | `pefa_by_pillar` | **PEFA Secretariat** | `mega-indicators`: Same PEFA source. 7 pillars displayed: (1) Budget Reliability, (2) Transparency, (3) Asset/Liability Management, (4) Policy-Based Strategy, (5) Predictability & Control, (6) Accounting & Reporting, (7) External Audit. Two frameworks (2011, 2016) handled. |
 
 ---
 
-## Overview Page — "Across Space" Tab
+### HOME PAGE — "Across Space" Tab
 
-### 8. Subnational Spending Map (Per Capita or Total)
-**"How much was spent per person in each region?" / "How much was spent in each region?"**
-| Layer | Detail |
-|---|---|
-| **DB Tables** | `boost.expenditure_by_country_geo1_year` + `indicator.admin1_boundaries_gold` + `indicator.admin0_disputed_boundaries_gold` |
-| **Processing** | `boost_gold` → `expenditure_by_country_geo1_func_year` (join subnational population + CPI) → `expenditure_by_country_geo1_year` |
-| **Primary source** | **BOOST** — `geo1` column (subnational geographic allocation) |
-| **Supporting sources** | **Subnational Population** — national statistics offices or census.gov, per-country scripts in `mega-indicators/population/{CODE}/`; **Admin Boundaries** — geoBoundaries project via `mega-indicators/geo/admin_boundaries_dlt.py` |
-
-### 9. Subnational Poverty Map
-**"What percent of the population is living in poverty?"**
-| Layer | Detail |
-|---|---|
-| **DB Table** | `indicator.subnational_poverty_rate` |
-| **Processing** | `mega-indicators/poverty/subnational_poverty/` — country-specific scripts |
-| **Primary source** | **World Bank PIPMaps** — [pipmaps.worldbank.org](https://pipmaps.worldbank.org); threshold: $3.00 LIC, $4.20 LMC, $8.30 UMC/HIC |
+| # | Chart | Data Table | Source | Processing Pipeline |
+|---|-------|-----------|--------|---------------------|
+| 8 | **How much was spent in each region?** (choropleth map) | `expenditure_by_country_geo1_year` + `admin1_boundaries_gold` | **BOOST** microdata + **World Bank Official Boundaries** | `mega-boost`: Expenditure tagged with `geo1` (subnational region) during harmonization. Aggregated by country × region × year. `mega-indicators`: GeoJSON boundaries loaded, admin1 names harmonized across countries (extensive custom mappings for Ghana, Colombia, DRC, etc.). Joined by region name for map rendering. |
+| 9 | **What percent of the population is living in poverty?** (choropleth map) | `subnational_poverty_rate` + `admin1_boundaries_gold` | **World Bank SPID/GSAP** + **World Bank Official Boundaries** | `mega-indicators`: Subnational poverty rates extracted from SPID and GSAP via World Bank DDH API. Income-level-specific thresholds applied ($3/day for LIC, $4.20 for LMC, $8.30 for UMC/HIC). Region names harmonized to match admin boundaries. |
 
 ---
 
-## Education Page — "Over Time" Tab
+### EDUCATION PAGE — "Over Time" Tab
 
-### 10. Public vs. Private Education Spending
-**"What % was spent by the govt vs household?"**
-| Layer | Detail |
-|---|---|
-| **DB Tables** | Public: `boost.expenditure_by_country_func_year` (Education); Private: `boost.edu_private_expenditure_by_country_year` |
-| **Processing** | Private edu = total edu spending (ICP) minus BOOST public edu, CPI-adjusted |
-| **Source (public)** | **BOOST** (func = "Education") |
-| **Source (private)** | **WB International Comparison Program / UNESCO UIS** — `mega-indicators/education/education_spending_icp.py` → `indicator.edu_spending` |
-
-### 11. Government Education Spending Over Time
-**"How has govt spending on education changed over time?"**
-| Layer | Detail |
-|---|---|
-| **DB Table** | `boost.expenditure_by_country_func_year` filtered to Education |
-| **Primary source** | **BOOST** |
-| **Supporting** | **CPI**, **Population** |
-
-### 12. Education Outcome
-**"How has education outcome changed?"**
-| Layer | Detail |
-|---|---|
-| **DB Tables** | `indicator.global_data_lab_hd_index` (attendance) + `indicator.learning_poverty_rate` + education expenditure |
-| **Source (attendance)** | **Global Data Lab** — [globaldatalab.org/shdi/](https://globaldatalab.org/shdi/about/) — via `mega-indicators/human_development/global_data_lab_hdi_extract.r` |
-| **Source (learning poverty)** | **WB Data360** indicator `WB_LPGD_SE_LPV_PRIM_SD` — via `mega-indicators/education/learning_poverty.py` |
-| **Displayed** | `per_capita_real_expenditure`, `attendance_6to17yo`, `learning_poverty_rate` |
-
-### 13. Operational vs. Capital Education Spending
-| Layer | Detail |
-|---|---|
-| **DB Table** | `boost.expenditure_by_country_func_econ_year` filtered to Education |
-| **Primary source** | **BOOST** — `func` + `econ` columns |
+| # | Chart | Data Table | Source | Processing Pipeline |
+|---|-------|-----------|--------|---------------------|
+| 10 | **What % was spent by govt vs household?** (horizontal stacked bar) | `edu_private_expenditure_by_country_year` | **International Comparison Program (ICP)** + **OECD** + **BOOST** | `mega-indicators`: ICP data from wbgapi databases (71, 62, 90) for 2005/2011/2017/2021. OECD education spending via SDMX API. Private share = ICP spending ÷ (ICP + govt spending). `mega-boost`: Public education spending from BOOST functional classification. Combined in `cross_country_aggregate_dlt.py`. |
+| 11 | **How has govt spending on education changed over time?** (stacked bar + line) | `expenditure_by_country_func_econ_year` (filtered to Education) | **BOOST** microdata | `mega-boost`: BOOST data filtered to `func = 'Education'`. Split by `admin0` (Central vs Regional). Decentralization ratio computed. |
+| 12 | **How has education outcome changed?** (dual-axis line) | `global_data_lab_hd_index` + `learning_poverty_rate` + education expenditure | **Global Data Lab (UNDP)** + **World Bank** + **BOOST** | `mega-indicators`: (1) School attendance rate (6–17 year-olds) from Global Data Lab via R `gdldata` package → HDI dataset. (2) Learning poverty rate from wbgapi (`SE.LPV.PRIM`). Dashboard overlays per capita education spending from BOOST. |
+| 13 | **Operational vs Capital Spending** (education) (stacked bar) | `expenditure_by_country_func_econ_year` (filtered) | **BOOST** microdata | `mega-boost`: BOOST data filtered to `func = 'Education'`, grouped by economic categories (Wage bill, Capital, Goods & services, etc.). |
 
 ---
 
-## Education Page — "Across Space" Tab
+### EDUCATION PAGE — "Across Space" Tab
 
-### 14. Central vs. Regional Education Spending + Sub-function Breakdown
-| Layer | Detail |
-|---|---|
-| **DB Table** | `boost.expenditure_by_country_geo0_func_sub_year` filtered to Education |
-| **Primary source** | **BOOST** — `geo0`, `func_sub` (e.g., Primary Education, Secondary Education) |
-
-### 15. Education Expenditure Map + Outcome Map
-| Layer | Detail |
-|---|---|
-| **DB Table** | `boost.expenditure_and_outcome_by_country_geo1_func_year` (Education) |
-| **Source (expenditure)** | **BOOST** geo1-level |
-| **Source (outcome)** | **Global Data Lab** — subnational `attendance_6to17yo` |
-
-### 16. Education Subnational Rank Chart
-| Layer | Detail |
-|---|---|
-| **DB Table** | Same as #15 — `rank_per_capita_real_exp` vs `rank_outcome_index` |
+| # | Chart | Data Table | Source | Processing Pipeline |
+|---|-------|-----------|--------|---------------------|
+| 14 | **Where was education spending directed?** (donut chart) | `expenditure_by_country_func_econ_year` | **BOOST** microdata | `mega-boost`: Education expenditure split by `geo0` (Central vs Regional allocation). |
+| 15 | **How much did the govt spend on different levels of education?** (treemap) | `expenditure_by_country_geo0_func_sub_year` | **BOOST** microdata | `mega-boost`: BOOST data with `func_sub` dimension (Pre-primary, Primary, Secondary, Tertiary, etc.). Aggregated by sub-function. |
+| 16 | **Subnational Education Spending** (choropleth map) | `expenditure_and_outcome_by_country_geo1_func_year` + boundaries | **BOOST** + **World Bank Boundaries** | `mega-boost`: Education expenditure by `geo1` region. Per capita computed using subnational population from `mega-indicators` (Global Data Lab or US Census). Joined with GeoJSON boundaries. |
+| 17 | **Subnational School Attendance Rate** (choropleth map) | `expenditure_and_outcome_by_country_geo1_func_year` + boundaries | **Global Data Lab (UNDP)** + **World Bank Boundaries** | `mega-indicators`: School attendance (6–17 year-olds) from Global Data Lab HDI dataset. Region names harmonized. `mega-boost`: Joined with expenditure data in `cross_country_aggregate_dlt.py`. |
+| 18 | **Spending vs Outcomes Across Regions** (Sankey diagram) | `expenditure_and_outcome_by_country_geo1_func_year` | **BOOST** + **Global Data Lab** | `mega-boost`: Regions ranked by per capita education spending and by attendance rate. Sankey links ranks to show whether high-spending regions have better outcomes. Spearman correlation computed in dashboard. |
 
 ---
 
-## Health Page — "Over Time" Tab
+### HEALTH PAGE — "Over Time" Tab
 
-### 17. Public vs. Private Health Spending
-**"What % was spent by the govt vs household?"**
-| Layer | Detail |
-|---|---|
-| **DB Tables** | Public: `boost.expenditure_by_country_func_year` (Health); Private: `boost.health_private_expenditure_by_country_year` |
-| **Processing** | OOP expenditure = CHE * OOP% / 100, CPI-adjusted |
-| **Source (public)** | **BOOST** (func = "Health") |
-| **Source (private)** | **WHO GHO** — CHE + OOP indicators — via `mega-indicators/health/health_expenditure.py` → `indicator.health_expenditure` |
-
-### 18. Government Health Spending Over Time
-**"How has govt spending on health changed over time?"**
-| Layer | Detail |
-|---|---|
-| **DB Table** | `boost.expenditure_by_country_func_year` filtered to Health |
-| **Primary source** | **BOOST** + **CPI** + **Population** |
-
-### 19. Health Outcome
-**"How has health outcome changed?"**
-| Layer | Detail |
-|---|---|
-| **DB Table** | `indicator.universal_health_coverage_index_gho` + health expenditure |
-| **Source** | **WHO GHO** — [UHC Index of Service Coverage](https://www.who.int/data/gho/data/indicators/indicator-details/GHO/uhc-index-of-service-coverage) — via `mega-indicators/health/sdg_health.py` |
-
-### 20. Operational vs. Capital Health Spending
-| Layer | Detail |
-|---|---|
-| **DB Table** | `boost.expenditure_by_country_func_econ_year` filtered to Health |
-| **Primary source** | **BOOST** |
+| # | Chart | Data Table | Source | Processing Pipeline |
+|---|-------|-----------|--------|---------------------|
+| 19 | **What % was spent by govt vs household?** (horizontal stacked bar) | `health_private_expenditure_by_country_year` | **WHO Global Health Expenditure Database** + **BOOST** | `mega-indicators`: Out-of-pocket (OOP) and current health expenditure (CHE) from WHO GHO API (`https://ghoapi.azureedge.net/api/`). `mega-boost`: Public health spending from BOOST. Combined in aggregation pipeline. |
+| 20 | **How has govt spending on health changed over time?** (stacked bar + line) | `expenditure_by_country_func_econ_year` (filtered to Health) | **BOOST** microdata | `mega-boost`: BOOST data filtered to `func = 'Health'`. Split by Central vs Regional. |
+| 21 | **How has health outcome changed?** (dual-axis line) | `universal_health_coverage_index_gho` + health expenditure | **WHO Global Health Observatory** + **BOOST** | `mega-indicators`: UHC Service Coverage Index from WHO GHO API. Dashboard overlays per capita health spending from BOOST. |
+| 22 | **Operational vs Capital Spending** (health) (stacked bar) | `expenditure_by_country_func_econ_year` (filtered) | **BOOST** microdata | `mega-boost`: BOOST data filtered to `func = 'Health'`, grouped by economic categories. |
 
 ---
 
-## Health Page — "Across Space" Tab
+### HEALTH PAGE — "Across Space" Tab
 
-### 21. Central vs. Regional Health Spending + Sub-function Breakdown
-| Layer | Detail |
-|---|---|
-| **DB Table** | `boost.expenditure_by_country_geo0_func_sub_year` filtered to Health |
-| **Primary source** | **BOOST** — `geo0`, `func_sub` |
-
-### 22. Health Expenditure Map + Outcome Map
-| Layer | Detail |
-|---|---|
-| **DB Table** | `boost.expenditure_and_outcome_by_country_geo1_func_year` (Health) |
-| **Source (expenditure)** | **BOOST** geo1-level |
-| **Source (outcome)** | **Global Data Lab** — subnational `health_index` |
-
-### 23. Health Subnational Rank Chart
-| Layer | Detail |
-|---|---|
-| **DB Table** | Same as #22 |
+| # | Chart | Data Table | Source | Processing Pipeline |
+|---|-------|-----------|--------|---------------------|
+| 23 | **Where was health spending directed?** (donut chart) | `expenditure_by_country_func_econ_year` | **BOOST** microdata | `mega-boost`: Health expenditure split by Central vs Regional. |
+| 24 | **How much did the govt spend on different health areas?** (treemap) | `expenditure_by_country_geo0_func_sub_year` | **BOOST** microdata | `mega-boost`: BOOST data with `func_sub` for health (Hospital services, Public health, Outpatient, etc.). |
+| 25 | **Subnational Health Spending** (choropleth map) | `expenditure_and_outcome_by_country_geo1_func_year` + boundaries | **BOOST** + **World Bank Boundaries** | `mega-boost`: Health expenditure by region, per capita using subnational population. |
+| 26 | **Subnational UHC Index** (choropleth map) | `expenditure_and_outcome_by_country_geo1_func_year` + boundaries | **WHO GHO** + **World Bank Boundaries** | `mega-indicators`: UHC index from WHO. Note: this is typically national-level; subnational may use health index from Global Data Lab HDI dataset. |
+| 27 | **Spending vs Outcomes Across Regions** (Sankey diagram) | `expenditure_and_outcome_by_country_geo1_func_year` | **BOOST** + **WHO/Global Data Lab** | Same pattern as education Sankey: regions ranked by health spending and health outcome, with Spearman correlation. |
 
 ---
 
-## Supporting Data: Complete Source Reference
+### Data Flow Diagram
 
-| Databricks Table | External Source | mega-indicators Script |
-|---|---|---|
-| `indicator.consumer_price_index` | World Bank API (`FP.CPI.TOTL`) | `consumer_price_index.py` |
-| `indicator.population` | World Bank API (`SP.POP.TOTL`) | `population/national_population.py` |
-| `indicator.subnational_population` | National statistics offices / census.gov | `population/{CODE}/` per-country |
-| `indicator.poverty_rate` | WB Poverty & Inequality Platform | `poverty/poverty.py` |
-| `indicator.subnational_poverty_rate` | WB PIPMaps | `poverty/subnational_poverty/` per-country |
-| `indicator.country` | WB API (`wbgapi`) + WB corporate currency table | `country.py` |
-| `indicator.gdp` | WB & OECD National Accounts | `gdp.py` |
-| `indicator.global_data_lab_hd_index` | Global Data Lab SHDI API | `human_development/global_data_lab_hdi_extract.r` + DLT |
-| `indicator.learning_poverty_rate` | WB Data360 | `education/learning_poverty.py` |
-| `indicator.edu_spending` | WB ICP / UNESCO UIS | `education/education_spending_icp.py` |
-| `indicator.health_expenditure` | WHO GHO (CHE, OOP) | `health/health_expenditure.py` |
-| `indicator.universal_health_coverage_index_gho` | WHO GHO (UHC index) | `health/sdg_health.py` |
-| `indicator.pefa_by_pillar` | PEFA Secretariat | `pefa/pefa_transform_load.py` |
-| `indicator.admin1_boundaries_gold` | geoBoundaries project | `geo/admin_boundaries_dlt.py` |
-| `indicator.admin0_disputed_boundaries_gold` | geoBoundaries project | `geo/admin_boundaries_dlt.py` |
-| `boost.boost_gold` | BOOST Excel workbooks (Ministries of Finance) | Per-country ETL in `mega-boost/{Country}/` |
-| All `boost.*` aggregate tables | Derived from `boost_gold` | `mega-boost/cross_country_aggregate_dlt.py` |
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                     EXTERNAL DATA SOURCES                          │
+├──────────────┬──────────────┬───────────────┬───────────────────────┤
+│ BOOST Excel  │ World Bank   │ WHO GHO API   │ Other Sources         │
+│ (18 countries│ APIs (wbgapi)│ (Health data) │ - PEFA Secretariat    │
+│  budget      │ - GDP        │ - OOP %       │ - Global Data Lab     │
+│  microdata)  │ - Population │ - CHE         │ - ICP/OECD            │
+│              │ - Poverty    │ - UHC Index   │ - US Census           │
+│              │ - CPI        │               │ - Ember Energy        │
+│              │ - Education  │               │ - WB Boundaries       │
+└──────┬───────┴──────┬───────┴───────┬───────┴───────────┬───────────┘
+       │              │               │                   │
+       ▼              ▼               ▼                   ▼
+┌──────────────┐ ┌─────────────────────────────────────────────────┐
+│  mega-boost  │ │              mega-indicators                    │
+│              │ │                                                 │
+│ Excel→CSV    │ │ API calls → Bronze → Silver → Gold tables:     │
+│ →Bronze      │ │  - population, gdp, cpi, poverty_rate          │
+│ →Silver      │ │  - subnational_poverty_rate                    │
+│ →Gold        │ │  - pefa_by_pillar                              │
+│ (COFOG/econ  │ │  - learning_poverty_rate                       │
+│  harmonize)  │ │  - global_data_lab_hd_index                    │
+│              │ │  - universal_health_coverage_index_gho          │
+│ boost_gold   │ │  - edu_private_spending, health_expenditure    │
+│      │       │ │  - admin1_boundaries_gold                      │
+│      ▼       │ │  - indicator_data_availability                 │
+│ Aggregation  │ └─────────────────┬───────────────────────────────┘
+│ DLT pipeline │                   │
+│ (joins with  │◄──────────────────┘
+│  indicators) │
+│      │       │
+│      ▼       │
+│ 7 aggregate  │
+│ tables       │
+└──────┬───────┘
+       │
+       ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                    rpf-country-dash                              │
+│  Dash/Plotly app reading from Databricks SQL                    │
+│  27 charts across Home, Education, Health pages                 │
+└──────────────────────────────────────────────────────────────────┘
+```
 
-The push via MCP failed due to permissions. Let me retry the git push.
+---
+
+### Source Legend
+
+| Source | Organization | Access Method |
+|--------|-------------|---------------|
+| **BOOST** | World Bank DIME | Country Excel files → mega-boost ETL |
+| **World Bank Open Data** | World Bank | wbgapi Python package |
+| **WHO GHO** | World Health Organization | REST API (`ghoapi.azureedge.net`) |
+| **PEFA** | PEFA Secretariat | Batch PDF download from pefa.org |
+| **Global Data Lab** | UNDP / Radboud University | R `gdldata` package |
+| **ICP** | World Bank | wbgapi databases 71, 62, 90 |
+| **OECD** | OECD | SDMX REST API |
+| **SPID/GSAP** | World Bank | DDH API download |
+| **WB Boundaries** | World Bank | GeoJSON files |
+| **US Census** | US Census Bureau | International population data |
+| **CPI** | World Bank | wbgapi → `consumer_price_index` table |
+
+Would you like me to commit this as a documentation file in one or more of the repos?
