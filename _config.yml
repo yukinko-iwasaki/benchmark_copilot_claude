@@ -1,9 +1,12 @@
 title: "AI Coding Agent Benchmarks"
 description: "Real-world benchmarks comparing AI coding tools on large, multi-repo codebases — from the DIME/DECDI team at the World Bank"
-theme: minima
+remote_theme: jekyll/minima
+baseurl: "/benchmark_copilot_claude"
+url: "https://yukinko-iwasaki.github.io"
 permalink: /blog/:title/
-url: ""
-baseurl: ""
+
+plugins:
+  - jekyll-remote-theme
 
 header_pages:
   - index.md

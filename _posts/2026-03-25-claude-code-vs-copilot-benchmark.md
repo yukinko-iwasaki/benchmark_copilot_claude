@@ -161,9 +161,10 @@ When reliability matters, context window size is the structural guarantee — no
 
 The full outputs from each tool are included for reference:
 
-- [Claude Code output](/raw-outputs/claudecode/)
-- [GitHub Copilot output](/raw-outputs/githubcopilot/)
-- [Claude Code output — Run 2](/raw-outputs/claudecode-run2/)
+- [Claude Code output]({{ site.baseurl }}/raw-outputs/claudecode/)
+- [GitHub Copilot output — Run 1]({{ site.baseurl }}/raw-outputs/githubcopilot/)
+- [GitHub Copilot output — Run 2]({{ site.baseurl }}/raw-outputs/githubcopilot-run2/)
+- [Claude Code output — Run 2]({{ site.baseurl }}/raw-outputs/claudecode-run2/)
 
 ---
 
