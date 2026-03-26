@@ -27,10 +27,10 @@ We tested this on a real task — documenting the full data lineage of the RPF C
 > *"Here are three repos: `rpf-country-dash` for visualization, `mega-boost` and `mega-indicators` for processing the underlying data. I would like you to summarize how each of the data used in the dashboard is created and tag them with their source when appropriate. Please make a summary chart by chart on the data source and how it is processed."*
 
 **Tools tested:**
-- GitHub Copilot with Claude Opus 4.6 — **200K token context window cap**
-- Claude Code with Claude Opus 4.6 — **1M token context window**
+- GitHub Copilot with Claude Opus 4.6 — on the org laptop
+- Claude Code with Claude Opus 4.6 — on the org laptop
 
-Same model. Same task. Same repos. Different context limits.
+Same model. Same task. Same repos. Same machine.
 
 ---
 
@@ -45,15 +45,40 @@ Before looking at results, here's what we were asking each tool to read:
 | `mega-indicators` | ~105,000 | ~26,000 |
 | **Total** | **~1,765,000** | **~441,000** |
 
-This number matters. The full codebase is ~441K tokens — **more than double GitHub Copilot's 200K context cap**, but comfortably within Claude Code's 1M limit.
+This number matters. The full codebase is ~441K tokens — more than double Copilot's 200K context window.
 
 ---
 
 ## What Happened
 
-### Claude Code — Single Run
+### GitHub Copilot — Org Laptop
 
-Claude Code's internal orchestration is not fully transparent — it likely spawned per-repo agents, but the exact mechanism is not confirmed. What is observable is the output: it systematically covered all three repos with full depth in a single coherent run, fitting within its 1M context window (~441K tokens used).
+Copilot processed the task with a single 200K context window. The org's cost optimization system prompt had disabled multi-agent orchestration, forcing Copilot to attempt a 441K token task through a 200K context — mathematically guaranteed to be incomplete.
+
+| | |
+|---|---|
+| **Agents** | 0 (disabled by cost optimization system prompt) |
+| **Context** | 200K (single context) |
+| **Charts covered** | ~19/27 |
+| **Transformation depth** | Low |
+
+**Output:**
+- ❌ ~19 of 27 charts documented — stopped mid-health section
+- ❌ Missing the last 8–10 charts entirely (health outcomes, health maps, health subnational ranking)
+- ❌ Missing OECD SDMX API as a source
+- ❌ No system architecture overview
+- ❌ No transformation logic — only pipeline structure (table names, script names)
+
+### Claude Code — Org Laptop
+
+Claude Code spawned 4 agents to process the three repos. Each agent had a 1M token context window.
+
+| | |
+|---|---|
+| **Agents** | 4 |
+| **Context per agent** | 1M |
+| **Charts covered** | 27/27 |
+| **Transformation depth** | High |
 
 **Output:**
 - ✅ All 27 charts documented
@@ -65,60 +90,58 @@ Claude Code's internal orchestration is not fully transparent — it likely spaw
   - ICP database IDs (71, 62, 90) and unit conversion from billion LCU
 - ✅ All external sources captured including OECD SDMX API, Global Data Lab R API with auth token
 - ✅ Supporting tables section with script-level lineage
-- ✅ Consistent, single coherent document
 
-### GitHub Copilot — Run 1
+### Primary Comparison
 
-**Output:**
-- ❌ 20 of 27 charts documented — stopped mid-health section
-- ❌ Missing charts 21–27 entirely (health outcomes, health maps, health subnational ranking)
-- ❌ Missing OECD SDMX API as a source
-- ❌ No system architecture overview
-- ❌ No transformation logic — only pipeline structure (table names, script names)
-
-### GitHub Copilot — Run 2
-
-On a second attempt, Copilot spawned 4 agents and divided the work across them. Notably, **each of these agents had a 1M token context window** — Copilot's 200K cap applies to its standard chat interface, but the multi-agent orchestration mode allocates larger per-agent contexts.
-
-**Output:**
-- ✅ All 27 charts documented
-- ⚠️ Transformation depth shallower than Claude Code
-- ⚠️ Non-deterministic — different outcome from identical prompt on run 1
+| | Copilot (Org Laptop) | Claude Code |
+|---|---|---|
+| Agents | 0 (disabled by system prompt) | 4 |
+| Context per agent | 200K (single context) | 1M each |
+| Charts covered | ~19/27 | 27/27 |
+| Transformation depth | low | high |
 
 ---
 
-## The Key Finding
+## Why Copilot Failed on the Org Laptop
 
-Here is where it gets interesting. When we investigated why Copilot run 2 succeeded, we found that each of the 4 agents also had a 1M token context window. Copilot's **200K cap applies to its standard chat interface** — when it escalates to multi-agent mode, each agent gets a larger context budget.
+The org laptop's cost optimization system prompt disabled Copilot's multi-agent orchestration. This forced it into a single 200K context against a 441K token codebase. The result was structurally inevitable: it couldn't fit the full codebase, so it couldn't document all of it.
 
-So in multi-agent mode, the context window size wasn't the differentiator in terms of raw capability. Both tools, at their best, were running on 1M token contexts.
-
-**The real differentiator is reliability and controllability:**
-
-| | Copilot Run 1 | Copilot Run 2 | Claude Code |
-|---|---|---|---|
-| Charts covered | 20/27 | 27/27 | 27/27 |
-| Agents used | unclear | 4 | unknown, likely per-repo |
-| Transformation depth | low | moderate | high |
-| Reproducible? | — | different from run 1 | consistent |
-| Work division controlled by user? | ❌ | ❌ | ✅ |
+This is not an indictment of Copilot's underlying capability. It's a demonstration of what happens when **org-level configurations silently constrain tool behavior**. The tool was handicapped by a system prompt it didn't choose, and the user had no visibility into this constraint.
 
 ---
 
-## Why the 1M Context Window Still Matters
+## Supplementary Observation: Personal Laptop
 
-Even though both tools can access 1M token contexts, Claude Code's single large context provides something the multi-agent approach cannot: **structural guarantee of completeness**.
+To understand whether the org result reflected a Copilot limitation or a configuration issue, we re-ran the same prompt on a personal laptop without the cost optimization system prompt.
 
-Think of it this way. If you need to understand a system that spans three interconnected repos, you can either:
+| | |
+|---|---|
+| **Agents** | 4 |
+| **Context per agent** | 200K each |
+| **Charts covered** | 27/27 |
+| **Transformation depth** | Moderate (shallower than Claude Code) |
 
-- **Option A:** Put the whole system in front of one person who reads everything and reasons across it
-- **Option B:** Split it across four people who each read a portion and try to coordinate
+**Key takeaways from the personal laptop run:**
 
-Option B *can* work — but whether it does depends entirely on how intelligently the work was divided, whether the division happened to put related files in the same agent's context, and whether the agents' outputs were coherently stitched together. You have no visibility into or control over any of this.
+- Copilot spawned 4 agents when unconstrained — confirming the cost optimization system prompt was the cause of the org laptop's 0-agent behavior, not a Copilot capability limitation
+- With 4 agents, Copilot covered all 27 charts — the completeness gap disappears when multi-agent is enabled
+- Transformation depth was still shallower than Claude Code's output — processing logic described at pipeline level but missing specific parameter values and edge cases
 
-With 441K tokens of codebase and a 1M context window, Claude Code fits everything in Option A. There is no orchestration gamble. Completeness is structurally guaranteed, not lucky.
+**This result is not a valid org comparison** — it was a different environment with a different configuration. But it adds important nuance: even when agent count is equalized (both tools using 4 agents), context window size per agent (200K vs. 1M) appears to independently affect output depth.
 
-> **The 1M context window isn't what makes Claude Code produce better output — it's what makes reliable output structurally guaranteed rather than dependent on opaque multi-agent orchestration you can't control or predict.**
+---
+
+## What This Tells Us
+
+Two things happened in this benchmark:
+
+**1. Org configuration silently broke Copilot.** The cost optimization system prompt disabled multi-agent orchestration, forcing a 441K token task through a 200K context window. The user had no indication this was happening. If your organization uses system prompts that constrain Copilot's agent behavior, you may be getting degraded results without knowing it.
+
+**2. Context window per agent matters for depth.** The personal laptop result — where both tools used 4 agents — shows that 200K per agent produces shallower output than 1M per agent on the same task. When tracing a data pipeline end-to-end across repos, an agent may need to hold files from multiple repos simultaneously. With 200K, it has to summarize or skip. With 1M, there is headroom.
+
+> **In the org environment, Copilot's cost optimization disabled multi-agent orchestration, leaving it with a single 200K context against a 441K token codebase — mathematically guaranteed to be incomplete. Claude Code with 4 agents at 1M each had no such constraint.**
+>
+> **The personal laptop result adds nuance: even when Copilot gets 4 agents, 200K per agent produces shallower output than 1M per agent — suggesting context window size per agent matters independently of agent count.**
 
 ---
 
@@ -127,33 +150,35 @@ With 441K tokens of codebase and a 1M context window, Claude Code fits everythin
 This benchmark is most relevant for tasks where:
 
 1. **Data or logic spans multiple repos** — transformation logic in one repo, schema definitions in another, business rules in a third
-2. **You need the full picture to answer correctly** — missing one repo means missing sources, missing transformations, missing the seam where bugs hide
-3. **Reproducibility matters** — documentation, onboarding materials, audit trails, anything that needs to be consistent across runs
+2. **You need depth, not just structure** — knowing that "PEFA scores are transformed" is less useful than knowing they convert letter grades A+ through D to numeric 4.5 to 1.0 across two framework versions
+3. **Your org may constrain tool behavior** — system prompts, cost optimization settings, and enterprise configurations can silently limit what tools can do
 
 It matters less for:
 - Single-file work or tasks contained within one repo
 - Inline code completion where Copilot's editor integration is faster
-- Tasks where "good enough on most runs" is acceptable
+- Tasks where structural-level documentation is sufficient
 
 ---
 
 ## Honest Caveats
 
-- We ran this benchmark once per tool (with one Copilot retry). A rigorous benchmark would run multiple times and measure consistency statistically.
-- We cannot directly observe what each Copilot agent received in its context — the multi-agent orchestration is a black box.
-- Claude Code's internal orchestration is similarly opaque — we cannot confirm whether it used per-repo agents or a different strategy.
-- Transformation depth in Copilot run 2 was not exhaustively compared against Claude Code output chart by chart.
-- This is one task type. Results may differ for other task categories.
+- The org vs. personal laptop difference was discovered after the fact, not designed as a controlled experiment.
+- We cannot observe exactly how each tool divided work across its agents — the orchestration is opaque in both cases.
+- Transformation depth was assessed qualitatively, not with a systematic scoring rubric.
+- This is one task type (data lineage documentation across 3 repos). Results may differ for other task categories.
+- A rigorous benchmark would run multiple times per configuration and measure consistency statistically.
 
 ---
 
 ## Bottom Line
 
-For large, multi-repo codebase tasks at the World Bank — pipeline documentation, data lineage tracing, cross-repo debugging — Claude Code's single large context produces more complete, more consistent, and more trustworthy output than Copilot's multi-agent approach.
+For large, multi-repo codebase tasks at the World Bank — pipeline documentation, data lineage tracing, cross-repo debugging — Claude Code produced more complete and deeper output than Copilot on the org laptop.
 
-Not because the model is different. Not necessarily because one is smarter. But because fitting the whole problem in one context removes the orchestration uncertainty that makes multi-agent output non-deterministic.
+The primary cause was an org-level cost optimization that silently disabled Copilot's multi-agent orchestration, forcing a 441K token task through a single 200K context. Claude Code, with 4 agents at 1M context each, had no such constraint.
 
-When reliability matters, context window size is the structural guarantee — not just a spec sheet number.
+The supplementary personal laptop test confirms Copilot *can* match Claude Code's coverage when multi-agent is enabled — but even then, 200K per agent produces shallower results than 1M per agent.
+
+**Check your org's system prompts.** And when depth matters, context window size per agent is not a spec sheet number — it's the variable that determines whether you get structural summaries or actionable documentation.
 
 ---
 
@@ -162,8 +187,8 @@ When reliability matters, context window size is the structural guarantee — no
 The full outputs from each tool are included for reference:
 
 - [Claude Code output]({{ site.baseurl }}/raw-outputs/claudecode/)
-- [GitHub Copilot output — Run 1]({{ site.baseurl }}/raw-outputs/githubcopilot/)
-- [GitHub Copilot output — Run 2]({{ site.baseurl }}/raw-outputs/githubcopilot-run2/)
+- [GitHub Copilot output — Org Laptop]({{ site.baseurl }}/raw-outputs/githubcopilot/)
+- [GitHub Copilot output — Personal Laptop]({{ site.baseurl }}/raw-outputs/githubcopilot-run2/)
 - [Claude Code output — Run 2]({{ site.baseurl }}/raw-outputs/claudecode-run2/)
 
 ---
