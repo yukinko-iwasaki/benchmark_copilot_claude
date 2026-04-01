@@ -30,7 +30,7 @@ We tested this on a real task — documenting the full data lineage of the RPF C
 - Claude Agent in GitHub Copilot with Claude Opus 4.6 — on the org laptop (VS Code extension)
 - Native Claude Code with Claude Opus 4.6 — via the browser (claude.ai), since Claude Code is not approved on the org laptop
 
-Same model. Same task. Same repos — each frozen on a `benchmark` branch to ensure identical content across runs. The key difference: the VS Code extension caps context at 200K tokens, while native Claude Code provides 1M tokens per sub-agent.
+Same model. Same task. Same repos — each frozen on a `benchmark` branch to ensure identical content across runs. The key difference: the VS Code extension caps context at 200K tokens, while native Claude Code operates with a 1M token context window.
 
 ---
 
@@ -75,12 +75,12 @@ The Claude Agent in Copilot produced a comprehensive summary covering all 27 cha
 
 ### Native Claude Code — Browser (claude.ai)
 
-Since Claude Code is not approved on the org laptop, we ran it via the browser version (claude.ai) with the same repos uploaded. Claude Code spawned 4 sub-agents — three appeared to read the repos in parallel (one per repo), then a fourth handled the planning and writing of the final summary. Each sub-agent had a 1M token context window.
+Since Claude Code is not approved on the org laptop, we ran it via the browser version (claude.ai) with the same repos uploaded. Claude Code spawned 4 sub-agents — three appeared to read the repos in parallel (one per repo), then a fourth handled the planning and writing of the final summary.
 
 | | |
 |---|---|
+| **Context window** | 1M |
 | **Sub-agents** | 4 (3 parallel readers + 1 planner/writer) |
-| **Context per sub-agent** | 1M |
 | **Charts covered** | 27/27 |
 | **Transformation depth** | High — traces processing logic to specific scripts, parameters, and formulas |
 
@@ -102,7 +102,7 @@ Since Claude Code is not approved on the org laptop, we ran it via the browser v
 | | Claude Agent in Copilot | Native Claude Code |
 |---|---|---|
 | Interface | VS Code extension (org laptop) | Browser (claude.ai) |
-| Context window | 200K (VS Code cap) | 1M per sub-agent |
+| Context window | 200K (VS Code cap) | 1M |
 | Sub-agents | Not observed | 4 (3 readers + 1 planner/writer) |
 | Charts covered | 27/27 | 27/27 |
 | Transformation depth | Moderate | High |
@@ -131,7 +131,7 @@ Two things emerged from this benchmark:
 
 **1. Both tools can achieve full coverage on large multi-repo tasks when properly configured.** The Claude Agent in Copilot and native Claude Code both documented all 27 charts. The days of AI tools cutting off mid-task on large codebases are not necessarily behind us (as the local agent result shows), but both of these production tools handled it.
 
-**2. Context window size is the main differentiator for output depth.** The Claude Agent in VS Code was capped at 200K tokens — less than half the codebase size. Native Claude Code's sub-agents each had 1M tokens, 5x the headroom. The result: Claude Code produced notably deeper output — specific API indicator codes, transformation formulas, script-level lineage, and parameter values that the Copilot output did not include. When tracing a data pipeline end-to-end across repos, a context window that can hold files from multiple repos simultaneously can trace connections that would otherwise require summarization.
+**2. Context window size is the main differentiator for output depth.** The Claude Agent in VS Code was capped at 200K tokens — less than half the codebase size. Native Claude Code operates with a 1M token context window, 5x larger. The result: Claude Code produced notably deeper output — specific API indicator codes, transformation formulas, script-level lineage, and parameter values that the Copilot output did not include. When tracing a data pipeline end-to-end across repos, more context headroom means the tool can hold files from multiple repos simultaneously and trace connections that would otherwise require summarization.
 
 > **Both tools covered all 27 charts. The difference was depth — driven by a 5x gap in context window (200K vs. 1M). Claude Code traced transformations to specific scripts, formulas, and API codes, while the Claude Agent in Copilot (constrained to 200K) documented the pipeline at a structural level. For tasks where knowing "PEFA scores are transformed" is sufficient, either tool works. For tasks where you need to know the scores convert letter grades A+ through D to numeric 4.5 to 1.0 across two framework versions — the larger context window made the difference.**
 
@@ -168,7 +168,7 @@ The depth difference matters less for:
 
 For large, multi-repo codebase tasks at the World Bank — pipeline documentation, data lineage tracing, cross-repo understanding — both the Claude Agent in Copilot and native Claude Code produced complete output covering all 27 charts.
 
-The difference was in depth, and the main driver was context window size. The VS Code extension caps the Claude Agent at 200K tokens — less than half the 441K token codebase. Native Claude Code, running via the browser with 4 sub-agents at 1M context each, had 5x the headroom per sub-agent. The result: Claude Code traced transformations down to specific scripts, API indicator codes, formulas, and parameter values. The Claude Agent in Copilot documented the same pipelines at a structural level — correct and complete, but without the granular detail.
+The difference was in depth, and the main driver was context window size. The VS Code extension caps the Claude Agent at 200K tokens — less than half the 441K token codebase. Native Claude Code, running via the browser with a 1M context window and 4 sub-agents, had significantly more headroom. The result: Claude Code traced transformations down to specific scripts, API indicator codes, formulas, and parameter values. The Claude Agent in Copilot documented the same pipelines at a structural level — correct and complete, but without the granular detail.
 
 When structural understanding is enough, either tool works well. When you need the kind of detail that lets you debug, extend, or audit a pipeline, the 200K vs. 1M context gap was the variable that determined output depth.
 
