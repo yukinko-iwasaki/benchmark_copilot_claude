@@ -15,10 +15,6 @@ header_pages:
 
 exclude:
   - claude-code-vs-copilot-benchmark.md
-  - claudecode.md
-  - claudecode_run2.md
-  - githubcopilot.md
-  - githubcopilot_run2.md
   - Gemfile
   - Gemfile.lock
   - .claude

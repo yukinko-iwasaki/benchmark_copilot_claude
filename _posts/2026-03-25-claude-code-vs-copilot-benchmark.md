@@ -1,9 +1,9 @@
 ---
 layout: post
-title: "Claude Code vs. GitHub Copilot: A Real Benchmark on Large Multi-Repo Codebases"
+title: "Claude Code vs. Claude Agent in Copilot: A Real Benchmark on Large Multi-Repo Codebases"
 date: 2026-03-25
 author: DIME/DECDI team, World Bank
-description: "A real-world benchmark comparing Claude Code and GitHub Copilot on a large, multi-repo data lineage documentation task."
+description: "A real-world benchmark comparing native Claude Code and the Claude Agent in GitHub Copilot on a large, multi-repo data lineage documentation task."
 ---
 
 *A benchmark from the DIME/DECDI team at the World Bank*
@@ -22,15 +22,15 @@ We tested this on a real task — documenting the full data lineage of the RPF C
 
 ## The Task
 
-**Prompt (identical for both tools):**
+**Prompt (identical for all tools):**
 
 > *"Here are three repos: `rpf-country-dash` for visualization, `mega-boost` and `mega-indicators` for processing the underlying data. I would like you to summarize how each of the data used in the dashboard is created and tag them with their source when appropriate. Please make a summary chart by chart on the data source and how it is processed."*
 
 **Tools tested:**
-- GitHub Copilot with Claude Opus 4.6 — on the org laptop
-- Claude Code with Claude Opus 4.6 — on the org laptop
+- Claude Agent in GitHub Copilot with Claude Opus 4.6 — on the org laptop (VS Code extension)
+- Native Claude Code with Claude Opus 4.6 — via the browser (claude.ai), since Claude Code is not approved on the org laptop
 
-Same model. Same task. Same repos. Same machine.
+Same model. Same task. Same repos — each frozen on a `benchmark` branch to ensure identical content across runs. The key difference: the VS Code extension caps context at 200K tokens, while native Claude Code provides 1M tokens per sub-agent.
 
 ---
 
@@ -45,89 +45,83 @@ Before looking at results, here's what we were asking each tool to read:
 | `mega-indicators` | ~105,000 | ~26,000 |
 | **Total** | **~1,765,000** | **~441,000** |
 
-This number matters. The full codebase is ~441K tokens — more than double Copilot's 200K context window.
+This number matters. The full codebase is ~441K tokens — more than double the 200K context window available to the Claude Agent in VS Code.
 
 ---
 
 ## What Happened
 
-### GitHub Copilot — Org Laptop
+### Claude Agent in GitHub Copilot — Org Laptop
 
-Copilot processed the task with a single 200K context window and no sub-agents. We found what appeared to be a cost optimization system prompt on the org laptop that may have disabled multi-agent orchestration — though we cannot confirm this with certainty. Whatever the cause, Copilot did not spawn sub-agents and attempted the 441K token task through a single 200K context.
+The Claude Agent in Copilot produced a comprehensive summary covering all 27 charts in the dashboard, despite operating under a 200K context window cap imposed by the VS Code extension. The output was organized as a clean table-based format with columns for chart name, type, DB table, processing repo, and ultimate source.
 
 | | |
 |---|---|
-| **Sub-agents** | 0 |
-| **Context** | 200K (single context) |
-| **Charts covered** | ~19/27 |
-| **Transformation depth** | Low |
+| **Context window** | 200K (VS Code cap) |
+| **Charts covered** | 27/27 |
+| **Format** | Table-based, organized by page and tab |
+| **Transformation depth** | Moderate — identifies pipeline structure and sources |
+| **External sources** | Captured major sources (BOOST, World Bank API, WHO, PEFA, GDL, UNESCO/OECD) |
 
-**Output:**
-- ❌ ~19 of 27 charts documented — stopped mid-health section
-- ❌ Missing the last 8–10 charts entirely (health outcomes, health maps, health subnational ranking)
-- ❌ Missing OECD SDMX API as a source
-- ❌ No system architecture overview
-- ❌ No transformation logic — only pipeline structure (table names, script names)
+**Strengths:**
+- Complete coverage — all 27 charts documented
+- Clean, scannable table format with chart type, DB table, processing repo, and source in one view
+- Data flow summary diagram included
+- External data sources summary table at the end
 
-### Claude Code — Org Laptop
+**Limitations:**
+- Processing details described at pipeline level — e.g., notes that private education spending is "derived using total education spending" but doesn't trace the specific calculation
+- Source descriptions are concise but don't include specific API indicator codes or transformation parameters
 
-Claude Code spawned 4 sub-agents. Three sub-agents appeared to read the repos in parallel (one per repo), then a fourth sub-agent handled the planning and writing of the final summary. Each sub-agent had a 1M token context window.
+### Native Claude Code — Browser (claude.ai)
+
+Since Claude Code is not approved on the org laptop, we ran it via the browser version (claude.ai) with the same repos uploaded. Claude Code spawned 4 sub-agents — three appeared to read the repos in parallel (one per repo), then a fourth handled the planning and writing of the final summary. Each sub-agent had a 1M token context window.
 
 | | |
 |---|---|
 | **Sub-agents** | 4 (3 parallel readers + 1 planner/writer) |
 | **Context per sub-agent** | 1M |
 | **Charts covered** | 27/27 |
-| **Transformation depth** | High |
+| **Transformation depth** | High — traces processing logic to specific scripts, parameters, and formulas |
 
-**Output:**
-- ✅ All 27 charts documented
-- ✅ System architecture diagram showing how the three repos relate
-- ✅ "Key Transformations" column with actual processing logic — e.g.:
-  - Poverty threshold logic varying by income level (`$3.65/$6.85/$24.35`)
-  - PEFA grade conversion (`A+ to D` → numeric `4.5 to 1.0`, harmonized across 2011 & 2016 frameworks)
-  - 34+ country-specific boundary name corrections
-  - ICP database IDs (71, 62, 90) and unit conversion from billion LCU
-- ✅ All external sources captured including OECD SDMX API, Global Data Lab R API with auth token
-- ✅ Supporting tables section with script-level lineage
+**Strengths:**
+- Complete coverage — all 27 charts documented
+- Deep transformation detail — e.g., for private health spending: "CHE x OOP% / 100 (out-of-pocket in local currency), inflation-adjusted via CPI" with specific WHO indicator codes (`GHED_OOPSCHE_SHA2011`, `GHED_CHEGDP_SHA2011`)
+- Specific API indicator codes throughout (e.g., `FP.CPI.TOTL` for CPI, `SP.POP.TOTL` for population, `SE.LPV.PRIM` for learning poverty)
+- Script-level lineage — names the exact Python/R scripts responsible for each transformation
+- Poverty threshold logic documented with specific income-level breakpoints (LIC $3.00, LMIC $4.20, UMIC/HIC $8.30)
+- ICP database processing traced to specific rounds (2005, 2011, 2017, 2021) with indicator code `9120000`
+- Full reference tables mapping every Databricks table to its processing script and original source
 
-### Primary Comparison
+**Limitations:**
+- Longer output — more reading required to find specific information
+- Narrative format (numbered sections with bullet points) vs. Copilot's scannable tables
 
-| | Copilot (Org Laptop) | Claude Code |
+### Head-to-Head Comparison
+
+| | Claude Agent in Copilot | Native Claude Code |
 |---|---|---|
-| Sub-agents | 0 | 4 (3 readers + 1 planner/writer) |
-| Context per sub-agent | 200K (single context) | 1M each |
-| Charts covered | ~19/27 | 27/27 |
-| Transformation depth | low | high |
+| Interface | VS Code extension (org laptop) | Browser (claude.ai) |
+| Context window | 200K (VS Code cap) | 1M per sub-agent |
+| Sub-agents | Not observed | 4 (3 readers + 1 planner/writer) |
+| Charts covered | 27/27 | 27/27 |
+| Transformation depth | Moderate | High |
+| Output format | Tables | Narrative with reference tables |
+| API indicator codes | No | Yes (throughout) |
+| Script-level lineage | Partial | Yes (exact script names per table) |
+| Specific formulas/thresholds | No | Yes |
+
+Both tools achieved full coverage. The key difference was depth: Claude Code traced transformations down to specific scripts, API indicator codes, formulas, and parameter values, while the Claude Agent in Copilot documented the pipeline structure and sources at a higher level.
 
 ---
 
-## Why Copilot Fell Short on the Org Laptop
+## Supplementary Observation: Local Agent with Claude LLM
 
-Copilot did not use sub-agents on the org laptop. We found what appeared to be a cost optimization system prompt that may have been responsible for disabling multi-agent orchestration — but this is speculation, and we cannot confirm the exact cause. What we can confirm is the outcome: Copilot attempted a 441K token codebase through a single 200K context window, which was insufficient to cover the full task.
+As an additional data point, we also tested a local agent framework using Claude as the underlying LLM. This configuration performed significantly worse than either of the main tools.
 
-This may not reflect Copilot's full capability. If the org-level configuration was indeed the constraint, then the tool was operating under a limitation it didn't choose, and the user had no visibility into it.
+The local agent did not spawn any sub-agents, attempting to process the entire multi-repo codebase in a single pass. The result was incomplete — it stopped partway through the task, leaving large sections of the dashboard undocumented.
 
----
-
-## Supplementary Observation: Personal Laptop
-
-To investigate whether the org result reflected a Copilot limitation or a configuration issue, we re-ran the same prompt on a personal laptop that did not have the cost optimization system prompt.
-
-| | |
-|---|---|
-| **Sub-agents** | 4 |
-| **Context per sub-agent** | 200K each |
-| **Charts covered** | 27/27 |
-| **Transformation depth** | Moderate (shallower than Claude Code) |
-
-**Key takeaways from the personal laptop run:**
-
-- Copilot spawned 4 sub-agents when run on the personal laptop — suggesting (though not proving) that the cost optimization system prompt on the org laptop may have been responsible for the 0-sub-agent behavior
-- With 4 sub-agents, Copilot covered all 27 charts — the completeness gap disappears when multi-agent is enabled
-- Transformation depth was still shallower than Claude Code's output — processing logic described at pipeline level but missing specific parameter values and edge cases
-
-**This result is not a valid org comparison** — it was a different environment with a different configuration. But it adds important nuance: even when sub-agent count is equalized (both tools using 4 sub-agents), context window size per sub-agent (200K vs. 1M) appears to independently affect output depth.
+This reinforces that agent orchestration — not just the underlying model — matters significantly for complex, multi-repo tasks. The same Claude model produced very different results depending on the agent framework managing it.
 
 ---
 
@@ -135,51 +129,48 @@ To investigate whether the org result reflected a Copilot limitation or a config
 
 Two things emerged from this benchmark:
 
-**1. Something on the org laptop prevented Copilot from using sub-agents.** We found a cost optimization system prompt that may have been responsible, but we cannot confirm this definitively. Whatever the cause, Copilot was left with a single 200K context against a 441K token codebase — mathematically insufficient. If your organization has similar configurations, it's worth checking whether they affect tool behavior.
+**1. Both tools can achieve full coverage on large multi-repo tasks when properly configured.** The Claude Agent in Copilot and native Claude Code both documented all 27 charts. The days of AI tools cutting off mid-task on large codebases are not necessarily behind us (as the local agent result shows), but both of these production tools handled it.
 
-**2. Context window per sub-agent matters for depth.** The personal laptop result — where both tools used 4 sub-agents — shows that 200K per sub-agent produces shallower output than 1M per sub-agent on the same task. When tracing a data pipeline end-to-end across repos, a sub-agent may need to hold files from multiple repos simultaneously. With 200K, it has to summarize or skip. With 1M, there is headroom.
+**2. Context window size is the main differentiator for output depth.** The Claude Agent in VS Code was capped at 200K tokens — less than half the codebase size. Native Claude Code's sub-agents each had 1M tokens, 5x the headroom. The result: Claude Code produced notably deeper output — specific API indicator codes, transformation formulas, script-level lineage, and parameter values that the Copilot output did not include. When tracing a data pipeline end-to-end across repos, a context window that can hold files from multiple repos simultaneously can trace connections that would otherwise require summarization.
 
-> **On the org laptop, Copilot did not use sub-agents — possibly due to a cost optimization system prompt — leaving it with a single 200K context against a 441K token codebase. Claude Code with 4 sub-agents (3 parallel readers + 1 planner/writer) at 1M each had no such constraint.**
->
-> **The personal laptop result adds nuance: even when Copilot gets 4 sub-agents, 200K per sub-agent produces shallower output than 1M per sub-agent — suggesting context window size per sub-agent matters independently of sub-agent count.**
+> **Both tools covered all 27 charts. The difference was depth — driven by a 5x gap in context window (200K vs. 1M). Claude Code traced transformations to specific scripts, formulas, and API codes, while the Claude Agent in Copilot (constrained to 200K) documented the pipeline at a structural level. For tasks where knowing "PEFA scores are transformed" is sufficient, either tool works. For tasks where you need to know the scores convert letter grades A+ through D to numeric 4.5 to 1.0 across two framework versions — the larger context window made the difference.**
 
 ---
 
 ## When Does This Actually Matter?
 
-This benchmark is most relevant for tasks where:
+The depth difference matters most for tasks where:
 
 1. **Data or logic spans multiple repos** — transformation logic in one repo, schema definitions in another, business rules in a third
-2. **You need depth, not just structure** — knowing that "PEFA scores are transformed" is less useful than knowing they convert letter grades A+ through D to numeric 4.5 to 1.0 across two framework versions
-3. **Your org may constrain tool behavior** — system prompts, cost optimization settings, and enterprise configurations may limit what tools can do without the user's knowledge
+2. **You need actionable detail, not just structure** — knowing specific API indicator codes, transformation formulas, and script names matters for debugging or extending the pipeline
+3. **You're onboarding or auditing** — new team members or auditors need to understand exactly how data flows, not just that it flows
 
-It matters less for:
+The depth difference matters less for:
+- Quick orientation to an unfamiliar codebase
 - Single-file work or tasks contained within one repo
-- Inline code completion where Copilot's editor integration is faster
 - Tasks where structural-level documentation is sufficient
+- Inline code completion where Copilot's editor integration is faster
 
 ---
 
 ## Honest Caveats
 
-- The org vs. personal laptop difference was discovered after the fact, not designed as a controlled experiment.
-- The cost optimization system prompt is our best guess for why Copilot didn't use sub-agents on the org laptop, but we cannot confirm this is the definitive cause.
-- We cannot observe exactly how each tool divided work across its sub-agents — the orchestration is opaque in both cases. The "3 readers + 1 planner/writer" pattern for Claude Code is based on observable behavior, not confirmed internals.
+- Claude Code was run via the browser (claude.ai), not as a local CLI tool, since it is not approved on the org laptop. Copilot was run as the VS Code extension. The tools had different interfaces for accessing the repos, which could affect behavior.
+- We cannot observe exactly how each tool divided work internally — the orchestration is opaque in both cases. The "3 readers + 1 planner/writer" pattern for Claude Code is based on observable behavior, not confirmed internals.
 - Transformation depth was assessed qualitatively, not with a systematic scoring rubric.
 - This is one task type (data lineage documentation across 3 repos). Results may differ for other task categories.
+- The local agent test used a different agent framework, so its poor result reflects the framework as much as the task difficulty.
 - A rigorous benchmark would run multiple times per configuration and measure consistency statistically.
 
 ---
 
 ## Bottom Line
 
-For large, multi-repo codebase tasks at the World Bank — pipeline documentation, data lineage tracing, cross-repo debugging — Claude Code produced more complete and deeper output than Copilot on the org laptop.
+For large, multi-repo codebase tasks at the World Bank — pipeline documentation, data lineage tracing, cross-repo understanding — both the Claude Agent in Copilot and native Claude Code produced complete output covering all 27 charts.
 
-On the org laptop, Copilot did not spawn sub-agents — possibly due to a cost optimization system prompt — and was left with a single 200K context against a 441K token codebase. Claude Code used 4 sub-agents (3 reading repos in parallel, 1 planning and writing the summary) with 1M context each.
+The difference was in depth, and the main driver was context window size. The VS Code extension caps the Claude Agent at 200K tokens — less than half the 441K token codebase. Native Claude Code, running via the browser with 4 sub-agents at 1M context each, had 5x the headroom per sub-agent. The result: Claude Code traced transformations down to specific scripts, API indicator codes, formulas, and parameter values. The Claude Agent in Copilot documented the same pipelines at a structural level — correct and complete, but without the granular detail.
 
-The supplementary personal laptop test suggests Copilot *can* match Claude Code's coverage when sub-agents are enabled — but even then, 200K per sub-agent produces shallower results than 1M per sub-agent.
-
-When depth matters on large codebases, context window size per sub-agent is not a spec sheet number — it's the variable that determines whether you get structural summaries or actionable documentation.
+When structural understanding is enough, either tool works well. When you need the kind of detail that lets you debug, extend, or audit a pipeline, the 200K vs. 1M context gap was the variable that determined output depth.
 
 ---
 
@@ -187,13 +178,12 @@ When depth matters on large codebases, context window size per sub-agent is not 
 
 The full outputs from each tool are included for reference:
 
-- [Claude Code output]({{ site.baseurl }}/raw-outputs/claudecode/)
-- [GitHub Copilot output — Org Laptop]({{ site.baseurl }}/raw-outputs/githubcopilot/)
-- [GitHub Copilot output — Personal Laptop]({{ site.baseurl }}/raw-outputs/githubcopilot-run2/)
-- [Claude Code output — Run 2]({{ site.baseurl }}/raw-outputs/claudecode-run2/)
+- [Claude Agent in Copilot output]({{ site.baseurl }}/raw-outputs/claude-agent-copilot/)
+- [Native Claude Code output]({{ site.baseurl }}/raw-outputs/native-claude-code/)
+- [Local Agent with Claude LLM output (supplementary)]({{ site.baseurl }}/raw-outputs/local-agent-claude-llm/)
 
 ---
 
 *Tested on: RPF Country Dashboard, mega-boost, mega-indicators — DIME/DECDI, World Bank*
-*Model: Claude Opus 4.6 (both tools)*
+*Model: Claude Opus 4.6 (all tools)*
 *Date: March 2026*
