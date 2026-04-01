@@ -103,7 +103,7 @@ Since Claude Code is not approved on the org laptop, we ran it via the browser v
 |---|---|---|
 | Interface | VS Code extension (org laptop) | Browser (claude.ai) |
 | Context window | 200K (VS Code cap) | 1M |
-| Sub-agents | Not observed | 4 (3 readers + 1 planner/writer) |
+| Sub-agents | 4 | 4  |
 | Charts covered | 27/27 | 27/27 |
 | Transformation depth | Moderate | High |
 | Output format | Tables | Narrative with reference tables |
