@@ -153,6 +153,21 @@ The depth difference matters less for:
 
 ---
 
+## A Note on Cost: Premium Request Quota
+
+One practical consideration we hit during this benchmark: running Claude Opus 4.6 through GitHub Copilot burns premium requests at 3x the rate of standard models. A single large task like this one can consume a significant chunk of your monthly quota.
+
+![GitHub Copilot premium request usage at 100.8%]({{ site.baseurl }}/assets/images/copilot-premium-quota.png)
+
+*Our premium request quota after running the benchmark — fully consumed for the month.*
+
+Two takeaways for teams using premium models in Copilot:
+
+1. **Be mindful of request size.** Large, multi-repo tasks are expensive. Breaking a big task into smaller, targeted requests may produce better results *and* conserve quota — rather than asking for everything in one shot.
+2. **Match the model to the task.** Premium models like Opus are powerful but may be overkill for simple, contained tasks. Save them for work that genuinely benefits from deeper reasoning or larger context, and use standard models for routine work.
+
+---
+
 ## Honest Caveats
 
 - Claude Code was run via the browser (claude.ai), not as a local CLI tool, since it is not approved on the org laptop. Copilot was run as the VS Code extension. The tools had different interfaces for accessing the repos, which could affect behavior.
