@@ -91,7 +91,6 @@ Since Claude Code is not approved on the org laptop, we ran it via the browser v
     > "BOOST Excel microdata (country government budget records) + CPI for inflation adjustment (mega-indicators -> World Bank API)"
 
 - Detailed data description: e.g. Poverty threshold logic documented with specific income-level breakpoints (LIC $3.00, LMIC $4.20, UMIC/HIC $8.30)
-- Full reference tables mapping every Databricks table to its processing script and original source
 - Detailed Data Pipeline Summary — specific transformations are generalized and noted for boost data harmonization.
 
 **Limitations:**
