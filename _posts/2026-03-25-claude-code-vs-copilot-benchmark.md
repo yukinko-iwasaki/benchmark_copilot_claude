@@ -83,21 +83,20 @@ Since Claude Code is not approved on the org laptop, we ran it via the browser v
 
 **Strengths:**
 - Complete coverage — all 27 charts documented
-- Deeper transformation detail with mention of the key columns 
-    - Native Claude Code: 
-    """"Aggregated from boost_gold by country and year. real_expenditure is inflation-adjusted using CPI from prd_mega.indicator.consumer_price_index. Foreign/domestic split comes from the is_foreign flag in the harmonized microdata."""
+- Deeper transformation detail with mention of the key columns:
+    - Native Claude Code:
+    > "Aggregated from boost_gold by country and year. real_expenditure is inflation-adjusted using CPI from prd_mega.indicator.consumer_price_index. Foreign/domestic split comes from the is_foreign flag in the harmonized microdata."
 
-    - Claude Agent in VS Code
-    """
-    BOOST Excel microdata (country government budget records) + CPI for inflation adjustment (mega-indicators -> World Bank API)"""
+    - Claude Agent in VS Code:
+    > "BOOST Excel microdata (country government budget records) + CPI for inflation adjustment (mega-indicators -> World Bank API)"
 
-- Detailed data description: e.g Poverty threshold logic documented with specific income-level breakpoints (LIC $3.00, LMIC $4.20, UMIC/HIC $8.30)
+- Detailed data description: e.g. Poverty threshold logic documented with specific income-level breakpoints (LIC $3.00, LMIC $4.20, UMIC/HIC $8.30)
 - Full reference tables mapping every Databricks table to its processing script and original source
-- Detailed Data Pipeline Summary - Specific transformations are generalized and noted for boost data harmonization. 
+- Detailed Data Pipeline Summary — specific transformations are generalized and noted for boost data harmonization.
 
 **Limitations:**
 - Longer output — more reading required to find specific information
-- Missed some details for some special handling of speacial countries (Albania) - if given such detailed data description, it is better be perfect. 
+- Missed some details for special handling of specific countries (Albania) — if providing such detailed data descriptions, it is better to be thorough.
 
 ### Head-to-Head Comparison
 
@@ -110,7 +109,7 @@ Since Claude Code is not approved on the org laptop, we ran it via the browser v
 | Transformation depth | Moderate | High |
 | Output format | Tables | Narrative with reference tables |
 
-Both tools achieved full coverage. The key difference was depth: Claude Code traced transformations down to specific scripts and its specific transforamtion, while the Claude Agent in Copilot documented the pipeline structure and sources at a higher level.
+Both tools achieved full coverage. The key difference was depth: Claude Code traced transformations down to specific scripts and their specific transformation logic, while the Claude Agent in Copilot documented the pipeline structure and sources at a higher level.
 
 ---
 
@@ -120,9 +119,9 @@ As an additional data point, we also tested a local agent framework using Claude
 
 The local agent did not spawn any sub-agents, attempting to process the entire multi-repo codebase in a single pass. The result was incomplete — it stopped partway through the task, leaving some sections of the dashboard undocumented.
 
-This reinforces that agent orchestration — not just the underlying model — matters significantly for complex, multi-repo tasks. The same Claude model produced very different results depending on the agent framework managing it. 
+This reinforces that agent orchestration — not just the underlying model — matters significantly for complex, multi-repo tasks. The same Claude model produced very different results depending on the agent framework managing it.
 
-It seems like sub agents are enabled feature, it was not clear what made these agent orchestration different from the main two cases. 
+Sub-agents appear to be an enabled feature, but it is not clear what made the agent orchestration in this case different from the main two tools.
 
 ---
 
@@ -139,11 +138,11 @@ One practical consideration we hit during this benchmark: running Claude Opus 4.
 
 ![GitHub Copilot premium request usage at 100.8%]({{ site.baseurl }}/assets/images/copilot-premium-quota.png)
 
-*Our premium request quota after running the benchmark several times— fully consumed for the month.*
+*Our premium request quota after running the benchmark several times — fully consumed for the month.*
 
 Two takeaways for teams using premium models in Copilot:
 
-1. **Be mindful of request size.** Large, multi-repo tasks are expensive. Breaking a big task into smaller, targeted requests may produce better results even when the resources are limited. 
+1. **Be mindful of request size.** Large, multi-repo tasks are expensive. Breaking a big task into smaller, targeted requests may produce better results even when the resources are limited.
 2. **Match the model to the task.** Premium models like Opus are powerful but may be overkill for simple, contained tasks. Save them for work that genuinely benefits from deeper reasoning or larger context, and use standard models for routine work.
 
 ---
