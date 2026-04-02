@@ -67,8 +67,8 @@ The Claude Agent in Copilot produced a comprehensive summary covering all 27 cha
 - External data sources summary table at the end
 
 **Limitations:**
-- Processing details described at pipeline level — e.g., notes that private education spending is "derived using total education spending" but doesn't trace the specific calculation
-- Source descriptions are concise but don't include specific API indicator codes or transformation parameters
+- Brief summary of the data pipeline. 
+- No mention of the key columns
 
 ### Native Claude Code — Browser (claude.ai/code)
 
